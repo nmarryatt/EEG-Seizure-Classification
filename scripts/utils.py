@@ -1,7 +1,7 @@
 
 import matplotlib.pyplot as plt
 
-def plot_eeg_segment(segment, label, num_samples=500):
+def plot_eeg_segment(segment, label, num_samples=500, norm=False):
     """
     Plot the first num_samples of an EEG segment.
 
@@ -14,5 +14,5 @@ def plot_eeg_segment(segment, label, num_samples=500):
     plt.plot(segment[:num_samples], color='blue')
     plt.title(f"EEG Segment Example - Label: {'Seizure' if label==1 else 'Non-seizure'}")
     plt.xlabel("Sample index")
-    plt.ylabel("Amplitude (Normalised)")
+    plt.ylabel(f"Amplitude ({'Normalised' if norm else 'Raw'})")
     plt.show()
