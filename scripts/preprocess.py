@@ -42,8 +42,20 @@ def load_and_preprocess(base_path, folders):
                 file_path = os.path.join(folder_path, fname)
                 eeg_segment = np.loadtxt(file_path)
                 eeg_segment = lowpass_filter(eeg_segment)
-                X.append(eeg_segment)
-                y.append(label)
+
+                # Trim so it's divisible by 4
+                n = len(eeg_segment)
+                n_trim = n - (n % 4)
+                eeg_segment = eeg_segment[:n_trim]
+
+                part_len = n_trim // 4
+
+                # Split into 4 equal parts
+                for i in range(4):
+                    start = i * part_len
+                    end = (i + 1) * part_len
+                    X.append(eeg_segment[start:end])
+                    y.append(label)
 
     return np.array(X), np.array(y)
 

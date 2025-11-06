@@ -1,4 +1,6 @@
 
+import torch
+
 def train(model, loader, criterion, optimizer, device='cpu'):
     model.train()
     running_loss = 0.0

@@ -16,3 +16,40 @@ def plot_eeg_segment(segment, label, num_samples=500, norm=False):
     plt.xlabel("Sample index")
     plt.ylabel(f"Amplitude ({'Normalised' if norm else 'Raw'})")
     plt.show()
+
+
+import matplotlib.pyplot as plt
+
+def plot_training_history(train_loss, val_loss, train_acc, val_acc, epochs=None):
+    """
+    Plot training and validation loss and accuracy curves.
+
+    Parameters:
+    - train_loss: list of training loss per epoch
+    - val_loss: list of validation loss per epoch
+    - train_acc: list of training accuracy per epoch
+    - val_acc: list of validation accuracy per epoch
+    - epochs: list of epoch numbers (optional). If None, defaults to 1..len(train_loss)
+    """
+    if epochs is None:
+        epochs = list(range(1, len(train_loss) + 1))
+    
+    # Plot Loss
+    plt.figure(figsize=(10,4))
+    plt.plot(epochs, train_loss, label='Train Loss', marker='o')
+    plt.plot(epochs, val_loss, label='Validation Loss', marker='o')
+    plt.xlabel('Epoch')
+    plt.ylabel('Loss')
+    plt.title('Training and Validation Loss')
+    plt.legend()
+    plt.show()
+    
+    # Plot Accuracy
+    plt.figure(figsize=(10,4))
+    plt.plot(epochs, train_acc, label='Train Accuracy', marker='o')
+    plt.plot(epochs, val_acc, label='Validation Accuracy', marker='o')
+    plt.xlabel('Epoch')
+    plt.ylabel('Accuracy')
+    plt.title('Training and Validation Accuracy')
+    plt.legend()
+    plt.show()
