@@ -21,57 +21,70 @@ class simple_EEG_MLP(nn.Module):
     
 
 class simple_EEG_CNN(nn.Module):
-    def __init__(self, input_length=1024):
+    def __init__(self, input_length=4097):
         super(simple_EEG_CNN, self).__init__()
 
-        # 1D Convolutional layers
-        # Input  (32, 1, 1024)
-        self.conv1 = nn.Conv1d(in_channels=1, out_channels=16, kernel_size=7, stride=1, padding=3) 
+        # Conv1: Capture seizure spike patterns (70-200ms)
+        # Kernel=25 → ~145ms at 173Hz
+        self.conv1 = nn.Conv1d(in_channels=1, out_channels=16, kernel_size=25, stride=1, padding=12) 
         self.bn1 = nn.BatchNorm1d(16) # BatchNorm after conv1
-        self.pool1 = nn.MaxPool1d(kernel_size=2, stride=2)
-        # after conv1 and pool1 (32, 16, 512)
+        self.pool1 = nn.MaxPool1d(kernel_size=4, stride=4)
+        self.dropout1 = nn.Dropout(0.3)
+        # After conv1+pool1: (batch, 16, 1024)
 
-        self.conv2 = nn.Conv1d(in_channels=16, out_channels=32, kernel_size=5, stride=1, padding=2)
+        # Conv2: Capture medium-term patterns (300-500ms)
+        # Kernel=15 → ~350ms in the pooled space
+        self.conv2 = nn.Conv1d(in_channels=16, out_channels=32, kernel_size=15, stride=1, padding=7)
         self.bn2 = nn.BatchNorm1d(32) # BatchNorm after conv2
-        self.pool2 = nn.MaxPool1d(kernel_size=2, stride=2)
-        # after conv 2  and pool2 (32, 32, 256)
+        self.pool2 = nn.MaxPool1d(kernel_size=4, stride=4)
+        self.dropout2 = nn.Dropout(0.4)
+        # After conv3+pool3: (batch, 32, 256)
 
-        self.conv3 = nn.Conv1d(in_channels=32, out_channels=64, kernel_size=3, stride=1, padding=1)
+        # Conv3: Capture long-term evolution patterns
+        self.conv3 = nn.Conv1d(in_channels=32, out_channels=64, kernel_size=7, stride=1, padding=3)
         self.bn3 = nn.BatchNorm1d(64) # BatchNorm after conv3
-        self.pool3 = nn.MaxPool1d(kernel_size=4, stride=2)
-        # after conv 3 (32, 64, 1024), after pool3 (32, 64, 127))
+        self.pool3 = nn.MaxPool1d(kernel_size=4, stride=4)
+        # after conv 3 (batch, 64, 64)
         
         # Dropout for regularization
-        self.dropout = nn.Dropout(0.3)
+        self.dropout3 = nn.Dropout(0.5)
 
-        # Fully connected layers for classification
-        self.fc1 = nn.Linear(64 * 127, 128)
-        self.fc2 = nn.Linear(128, 2)  # binary classification output
+        # global pooling
+        self.global_pool = nn.AdaptiveAvgPool1d(1)
+
+        self.fc1 = nn.Linear(64, 64)  
+        self.dropout_fc = nn.Dropout(0.5)
+        self.fc2 = nn.Linear(64, 2)
 
     def forward(self, x):
-        # Conv1 + BN + Relu + Pool
+        # Conv block 1
         x = self.conv1(x)
         x = self.bn1(x)
         x = F.relu(x)
         x = self.pool1(x)
+        x = self.dropout1(x)  # NEW
         
-        # Conv2 + BN + Relu + Pool
-        x = self.conv2(x) 
-        x = self.bn2(x) 
-        x = F.relu(x) 
+        # Conv block 2
+        x = self.conv2(x)
+        x = self.bn2(x)
+        x = F.relu(x)
         x = self.pool2(x)
-
-        # Conv3 + BN + ReLU + Pool 
-        x = self.conv3(x) 
+        x = self.dropout2(x)  # NEW
+        
+        # Conv block 3
+        x = self.conv3(x)
         x = self.bn3(x)
-        x = F.relu(x) 
+        x = F.relu(x)
         x = self.pool3(x)
-
-        # Flatten the output for the fully connected layers
+        x = self.dropout3(x)  # NEW
+        
+        # Global pooling and classifier
+        x = self.global_pool(x)
         x = x.view(x.size(0), -1)
-
-        x = F.relu(self.fc1(x))
-        x = self.dropout(x)
+        
+        x = self.fc1(x)
+        x = F.relu(x)
+        x = self.dropout_fc(x)
         x = self.fc2(x)
-
+        
         return x
