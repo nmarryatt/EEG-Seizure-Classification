@@ -1,6 +1,8 @@
 import torch
 from torch.utils.data import DataLoader, TensorDataset, SubsetRandomSampler
 import numpy as np
+import torch.nn as nn
+import torch.optim as optim
 from scripts.train import train
 from scripts.train import evaluate
 from sklearn.model_selection import KFold
@@ -14,6 +16,10 @@ from sklearn.metrics import (
 )
 from sklearn.model_selection import KFold
 import matplotlib.pyplot as plt
+
+from torch.utils.data import DataLoader, TensorDataset, SubsetRandomSampler
+from scripts.CV import normalize_fold_data, create_fold_dataloaders, calculate_class_weights, print_cv_summary, train_single_fold
+
 
 def normalize_fold_data(X_train, X_val):
     """
@@ -174,6 +180,89 @@ def print_cv_summary(results, n_splits):
 
 
 
+    # 5-fold CV
+def train_with_kfold_cv(X_data, y_data, model_class, n_splits=5, max_epochs=50, 
+                       batch_size=32, device='cuda', patience=10, min_delta=0.001,
+                       model_kwargs=None):
+    """
+    Train model with k-fold cross-validation
+    
+    Args:
+        X_data: Full dataset (n_samples, 4097) - filtered but NOT normalized
+        y_data: Full labels (n_samples,)
+        model_class: Model class to instantiate (e.g., simple_EEG_CNN)
+        n_splits: Number of folds
+        max_epochs: Maximum epochs per fold
+        batch_size: Batch size
+        device: 'cuda' or 'cpu'
+        patience: Early stopping patience
+        min_delta: Minimum improvement threshold
+        model_kwargs: Dict of kwargs for model initialization
+        
+    Returns:
+        Dictionary with results for all folds
+    """
+    if model_kwargs is None:
+        model_kwargs = {'input_length': 4097}
+    
+    kfold = KFold(n_splits=n_splits, shuffle=True, random_state=42)
+    
+    all_results = {
+        'fold_histories': [],
+        'best_val_accs': [],
+        'best_val_losses': []
+    }
+    
+    print(f"Starting {n_splits}-Fold Cross-Validation")
+    print("=" * 60)
+    
+    for fold, (train_ids, val_ids) in enumerate(kfold.split(X_data), 1):
+        print(f"\nFOLD {fold}/{n_splits}")
+        print("-" * 60)
+        
+        # Split data
+        X_train_fold = X_data[train_ids]
+        X_val_fold = X_data[val_ids]
+        y_train_fold = y_data[train_ids]
+        y_val_fold = y_data[val_ids]
+        
+        # Normalize
+        X_train_norm, X_val_norm = normalize_fold_data(X_train_fold, X_val_fold)
+        
+        # Create dataloaders
+        train_loader, val_loader = create_fold_dataloaders(
+            X_train_norm, X_val_norm, y_train_fold, y_val_fold, batch_size
+        )
+        
+        # Calculate class weights
+        class_weights = calculate_class_weights(y_train_fold, device)
+        
+        # Initialize model and training components
+        model = model_class(**model_kwargs).to(device)
+        criterion = nn.CrossEntropyLoss(weight=class_weights)
+        optimizer = optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-4)
+        
+        # Train this fold
+        fold_results = train_single_fold(
+            model, train_loader, val_loader, criterion, optimizer,
+            device, max_epochs, patience, min_delta, fold
+        )
+        
+        # Store results
+        all_results['fold_histories'].append(fold_results)
+        all_results['best_val_accs'].append(fold_results['best_val_acc'])
+        all_results['best_val_losses'].append(fold_results['best_val_loss'])
+        
+        print(f"  Fold {fold} Summary:")
+        print(f"    Best Val Acc: {fold_results['best_val_acc']:.4f} at epoch {fold_results['best_epoch']+1}")
+        print(f"    Total epochs: {fold_results['total_epochs']}")
+    
+    # Print overall summary
+    print_cv_summary(all_results, n_splits)
+    
+    return all_results
+
+
 def calculate_metrics_from_saved_models(X_full, y_full, model_class, n_splits=5, 
                                         device='cuda', model_kwargs=None):
     """
@@ -311,10 +400,9 @@ def print_quick_summary(metrics):
     
     print("="*60)
 
-
 def plot_metrics_comparison(metrics):
     """
-    Simple bar plot comparing key metrics
+    Clean bar plot comparing key metrics
     """
     metric_names = ['accuracy', 'balanced_accuracy', 'f1', 'precision', 'recall']
     display_names = ['Accuracy', 'Balanced\nAccuracy', 'F1', 'Precision', 'Recall\n(Sensitivity)']
@@ -322,33 +410,28 @@ def plot_metrics_comparison(metrics):
     means = [np.mean(metrics[m]) * 100 for m in metric_names]
     stds = [np.std(metrics[m]) * 100 for m in metric_names]
     
-    fig, ax = plt.subplots(figsize=(12, 6))
+    fig, ax = plt.subplots(figsize=(14, 7))
     x = np.arange(len(metric_names))
-    
-    bars = ax.bar(x, means, yerr=stds, alpha=0.75, color='steelblue', 
-                  edgecolor='black', capsize=7, linewidth=1.5)
     
     # Color code the bars
     colors = ['#3498db', '#2ecc71', '#e74c3c', '#f39c12', '#9b59b6']
-    for bar, color in zip(bars, colors):
-        bar.set_color(color)
     
-    ax.set_ylabel('Score (%)', fontsize=13, fontweight='bold')
-    ax.set_title('Model Performance Metrics (5-Fold CV)', fontsize=15, fontweight='bold')
+    bars = ax.bar(x, means, yerr=stds, alpha=0.8, 
+                  color=colors, edgecolor='black', 
+                  capsize=8, linewidth=1.5, ecolor='black')
+    
+    ax.set_ylabel('Score (%)', fontsize=14, fontweight='bold')
+    ax.set_title('Model Performance Metrics (5-Fold CV)', fontsize=16, fontweight='bold', pad=20)
     ax.set_xticks(x)
-    ax.set_xticklabels(display_names, fontsize=11)
+    ax.set_xticklabels(display_names, fontsize=12)
     ax.grid(True, alpha=0.3, axis='y', linestyle='--')
-    ax.set_ylim([90, 101])
+    ax.set_ylim([88, 102])
     
-    # Add value labels
+    # Add value labels on top of bars (above error bars)
     for i, (mean, std) in enumerate(zip(means, stds)):
-        ax.text(i, mean + std + 0.5, f'{mean:.2f}%\n±{std:.2f}%', 
+        y_pos = mean + std + 0.8
+        ax.text(i, y_pos, f'{mean:.2f}%\n±{std:.2f}%', 
                 ha='center', va='bottom', fontsize=10, fontweight='bold')
-    
-    # Add horizontal line at 95%
-    ax.axhline(95, color='red', linestyle='--', alpha=0.5, linewidth=1.5, 
-               label='95% threshold')
-    ax.legend(fontsize=10)
     
     plt.tight_layout()
     plt.savefig('metrics_comparison.png', dpi=300, bbox_inches='tight')
