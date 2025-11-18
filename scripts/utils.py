@@ -56,50 +56,79 @@ def plot_training_history(train_loss, val_loss, train_acc, val_acc, epochs=None)
     plt.show()
 
 
-
 def plot_kfold_results(results, n_splits=5):
-    """Plot training curves for all folds"""
-    fig, axes = plt.subplots(2, 2, figsize=(15, 10))
+    """Plot training curves with aligned x and y axes"""
     
+    fig, axes = plt.subplots(2, 2, figsize=(15, 10))
     fold_histories = results['fold_histories']
+    
+    # Find max epochs
+    max_epochs = max(len(fold['train_losses']) for fold in fold_histories)
+    
+    # Find y-axis ranges across ALL folds
+    all_train_losses = [loss for fold in fold_histories for loss in fold['train_losses']]
+    all_val_losses = [loss for fold in fold_histories for loss in fold['val_losses']]
+    all_train_accs = [acc for fold in fold_histories for acc in fold['train_accs']]
+    all_val_accs = [acc for fold in fold_histories for acc in fold['val_accs']]
+    
+    loss_min = min(min(all_train_losses), min(all_val_losses))
+    loss_max = max(max(all_train_losses), max(all_val_losses))
+    acc_min = min(min(all_train_accs), min(all_val_accs))
+    acc_max = max(max(all_train_accs), max(all_val_accs))
+    
+    # Add some padding (5%)
+    loss_padding = (loss_max - loss_min) * 0.05
+    acc_padding = (acc_max - acc_min) * 0.05
     
     # Training loss
     ax = axes[0, 0]
     for i, fold in enumerate(fold_histories, 1):
-        ax.plot(fold['train_losses'], label=f'Fold {i}', alpha=0.7)
+        epochs = range(1, len(fold['train_losses']) + 1)
+        ax.plot(epochs, fold['train_losses'], label=f'Fold {i}', alpha=0.7)
     ax.set_xlabel('Epoch')
     ax.set_ylabel('Training Loss')
     ax.set_title('Training Loss - All Folds')
+    ax.set_xlim(1, max_epochs)
+    ax.set_ylim(loss_min - loss_padding, loss_max + loss_padding)  # ← SAME Y-AXIS
     ax.legend()
     ax.grid(True, alpha=0.3)
     
     # Validation loss
     ax = axes[0, 1]
     for i, fold in enumerate(fold_histories, 1):
-        ax.plot(fold['val_losses'], label=f'Fold {i}', alpha=0.7)
+        epochs = range(1, len(fold['val_losses']) + 1)
+        ax.plot(epochs, fold['val_losses'], label=f'Fold {i}', alpha=0.7)
     ax.set_xlabel('Epoch')
     ax.set_ylabel('Validation Loss')
     ax.set_title('Validation Loss - All Folds')
+    ax.set_xlim(1, max_epochs)
+    ax.set_ylim(loss_min - loss_padding, loss_max + loss_padding)  # ← SAME Y-AXIS
     ax.legend()
     ax.grid(True, alpha=0.3)
     
     # Training accuracy
     ax = axes[1, 0]
     for i, fold in enumerate(fold_histories, 1):
-        ax.plot(fold['train_accs'], label=f'Fold {i}', alpha=0.7)
+        epochs = range(1, len(fold['train_accs']) + 1)
+        ax.plot(epochs, fold['train_accs'], label=f'Fold {i}', alpha=0.7)
     ax.set_xlabel('Epoch')
     ax.set_ylabel('Training Accuracy')
     ax.set_title('Training Accuracy - All Folds')
+    ax.set_xlim(1, max_epochs)
+    ax.set_ylim(acc_min - acc_padding, acc_max + acc_padding)  # ← SAME Y-AXIS
     ax.legend()
     ax.grid(True, alpha=0.3)
     
     # Validation accuracy
     ax = axes[1, 1]
     for i, fold in enumerate(fold_histories, 1):
-        ax.plot(fold['val_accs'], label=f'Fold {i}', alpha=0.7)
+        epochs = range(1, len(fold['val_accs']) + 1)
+        ax.plot(epochs, fold['val_accs'], label=f'Fold {i}', alpha=0.7)
     ax.set_xlabel('Epoch')
     ax.set_ylabel('Validation Accuracy')
     ax.set_title('Validation Accuracy - All Folds')
+    ax.set_xlim(1, max_epochs)
+    ax.set_ylim(acc_min - acc_padding, acc_max + acc_padding)  # ← SAME Y-AXIS
     ax.legend()
     ax.grid(True, alpha=0.3)
     
@@ -111,7 +140,6 @@ def plot_kfold_results(results, n_splits=5):
     fig, ax = plt.subplots(figsize=(10, 6))
     folds = np.arange(1, n_splits + 1)
     best_accs = results['best_val_accs']
-    
     ax.bar(folds, best_accs, alpha=0.7, color='steelblue', edgecolor='black')
     ax.axhline(np.mean(best_accs), color='red', linestyle='--', 
                label=f'Mean: {np.mean(best_accs):.4f}')
@@ -121,7 +149,6 @@ def plot_kfold_results(results, n_splits=5):
     ax.set_xticks(folds)
     ax.legend()
     ax.grid(True, alpha=0.3, axis='y')
-    
     plt.tight_layout()
     plt.savefig('kfold_best_accuracies.png', dpi=300, bbox_inches='tight')
     plt.show()
