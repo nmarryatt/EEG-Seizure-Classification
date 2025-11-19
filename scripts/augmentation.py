@@ -22,8 +22,7 @@ import matplotlib.pyplot as plt
 from torch.utils.data import DataLoader, TensorDataset, SubsetRandomSampler
 from scripts.CV import normalize_fold_data, create_fold_dataloaders, calculate_class_weights, print_cv_summary, train_single_fold
 
-
-def augment_eeg_signal(signal, aug_type='noise'):
+def augment_eeg_signal(signal, aug_type):
     """
     Augment a single EEG signal with MORE AGGRESSIVE parameters
     """
@@ -37,12 +36,10 @@ def augment_eeg_signal(signal, aug_type='noise'):
         return signal * scale_factor
     
     elif aug_type == 'shift':
-        # INCREASED: from (-100, 100) to (-500, 500) for more visible shift
         shift = np.random.randint(-100, 100)
         return np.roll(signal, shift)
     
     elif aug_type == 'warp':
-        # INCREASED: from (0.95, 1.05) to (0.85, 1.15) for more dramatic warping
         warp_factor = np.random.uniform(0.96, 1.05)
         indices = np.arange(len(signal))
         warped_indices = (indices * warp_factor).astype(int) % len(signal)
@@ -124,7 +121,7 @@ def visualize_augmentation_comparison(X_original, sample_idx=0, start_time=5, du
     aug_methods = ['noise', 'scale', 'shift', 'warp']
     aug_labels = {
         'noise': 'Gaussian Noise Addition',
-        'scale': 'Amplitude Scaling (±30%)', 
+        'scale': 'Amplitude Scaling (±15%)', 
         'shift': 'Temporal Shift',
         'warp': 'Time Warping'
     }

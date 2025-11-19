@@ -136,19 +136,3 @@ def plot_kfold_results(results, n_splits=5):
     plt.savefig('kfold_training_curves.png', dpi=300, bbox_inches='tight')
     plt.show()
     
-    # Bar plot of best accuracies
-    fig, ax = plt.subplots(figsize=(10, 6))
-    folds = np.arange(1, n_splits + 1)
-    best_accs = results['best_val_accs']
-    ax.bar(folds, best_accs, alpha=0.7, color='steelblue', edgecolor='black')
-    ax.axhline(np.mean(best_accs), color='red', linestyle='--', 
-               label=f'Mean: {np.mean(best_accs):.4f}')
-    ax.set_xlabel('Fold')
-    ax.set_ylabel('Best Validation Accuracy')
-    ax.set_title('Best Validation Accuracy per Fold')
-    ax.set_xticks(folds)
-    ax.legend()
-    ax.grid(True, alpha=0.3, axis='y')
-    plt.tight_layout()
-    plt.savefig('kfold_best_accuracies.png', dpi=300, bbox_inches='tight')
-    plt.show()
