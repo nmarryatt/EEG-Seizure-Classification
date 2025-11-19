@@ -24,9 +24,10 @@ from scripts.CV import (
     train_single_fold
 )
 
+
 def augment_eeg_signal(signal, aug_type):
     """
-    Augment a single EEG signal with MORE AGGRESSIVE parameters
+    Augment a single EEG signal
     """
     if aug_type == 'noise':
         noise_level = 0.05 * np.std(signal)
@@ -156,99 +157,80 @@ def visualize_augmentation_comparison(X_original, sample_idx=0, start_time=5, du
     plt.savefig('augmentation_comparison_zoomed.png', dpi=300, bbox_inches='tight')
     plt.show()
 
-import numpy as np
-import torch
-import torch.nn as nn
-import torch.optim as optim
-from sklearn.model_selection import train_test_split
-
-
-def tune_hyperparameters_on_fold(X_train_val, y_train_val, model_class, device='cuda', 
-                                   n_trials=3, max_epochs=15):
-    """
-    Hyperparameter tuning for a single fold using random search
+def tune_hyperparameters_on_fold(
+        X_train_val, y_train_val, model_class,
+        device, n_trials=3, max_epochs=15):
     
+    """
+    Random-search hyperparameter tuning for a PyTorch model.
+
     Args:
-        X_train_val: Training data for this fold (NOT normalized)
-        y_train_val: Training labels for this fold
-        model_class: Model class to instantiate
-        device: 'cuda' or 'cpu'
-        n_trials: Number of random search trials
-        max_epochs: Epochs per trial (keep low for speed)
-        
+        X (np.ndarray): Training features.
+        y (np.ndarray): Training labels.
+        model_class (callable): Model constructor.
+        n_trials (int): Hyperparameter samples to evaluate.
+        max_epochs (int): Max epochs per trial.
+        device (str or torch.device): Compute device.
+        val_split (float): Fraction of data for validation.
+        seed (int): RNG seed for reproducibility.
+
     Returns:
-        Dictionary with best hyperparameters
+        dict: Best hyperparameter set found.
     """
-    
-    # Hyperparameter search space
+
+
     param_options = {
         'learning_rate': [1e-4, 5e-4, 1e-3],
         'dropout': [0.3, 0.4, 0.5],
         'batch_size': [16, 32],
         'weight_decay': [1e-5, 1e-4]
     }
-    
+
     best_params = None
     best_val_acc = 0
-    
+
     print(f"  Tuning hyperparameters ({n_trials} random trials)...")
-    
+
     for trial in range(n_trials):
-        # Randomly sample parameters - IMPORTANT: convert to native Python types!
         params = {
             'learning_rate': float(np.random.choice(param_options['learning_rate'])),
             'dropout': float(np.random.choice(param_options['dropout'])),
-            'batch_size': int(np.random.choice(param_options['batch_size'])),  # MUST be Python int
+            'batch_size': int(np.random.choice(param_options['batch_size'])),
             'weight_decay': float(np.random.choice(param_options['weight_decay']))
         }
-        
-        # Split into train and validation for tuning
+
+        # Split data
         X_train, X_val, y_train, y_val = train_test_split(
-            X_train_val, y_train_val, test_size=0.2, 
+            X_train_val, y_train_val, test_size=0.2,
             random_state=trial, stratify=y_train_val
         )
-        
-        # Normalize using training stats
-        mean = X_train.mean(axis=0)
-        std = X_train.std(axis=0) + 1e-8
-        X_train_norm = (X_train - mean) / std
-        X_val_norm = (X_val - mean) / std
-        
-        # Convert to tensors
-        X_train_tensor = torch.FloatTensor(X_train_norm)
-        y_train_tensor = torch.LongTensor(y_train)
-        X_val_tensor = torch.FloatTensor(X_val_norm)
-        y_val_tensor = torch.LongTensor(y_val)
-        
-        # Create dataloaders
-        train_dataset = torch.utils.data.TensorDataset(X_train_tensor, y_train_tensor)
-        val_dataset = torch.utils.data.TensorDataset(X_val_tensor, y_val_tensor)
-        
-        train_loader = torch.utils.data.DataLoader(
-            train_dataset, batch_size=params['batch_size'], shuffle=True
+
+        # Normalize using your helper
+        X_train_norm, X_val_norm = normalize_fold_data(X_train, X_val)
+
+        # Create dataloaders using your helper
+        train_loader, val_loader = create_fold_dataloaders(
+            X_train_norm, X_val_norm, y_train, y_val,
+            batch_size=params['batch_size']
         )
-        val_loader = torch.utils.data.DataLoader(
-            val_dataset, batch_size=params['batch_size'], shuffle=False
-        )
-        
-        # Calculate class weights
-        class_counts = np.bincount(y_train)
-        class_weights = torch.FloatTensor([1.0 / count for count in class_counts]).to(device)
-        
-        # Initialize model
+
+        # Class weights using your helper
+        class_weights = calculate_class_weights(y_train, device)
+
+        # Build model
         model = model_class(input_length=4097, dropout=params['dropout']).to(device)
+
         criterion = nn.CrossEntropyLoss(weight=class_weights)
         optimizer = optim.Adam(
-            model.parameters(), 
+            model.parameters(),
             lr=params['learning_rate'],
             weight_decay=params['weight_decay']
         )
-        
-        # Quick training
+
         best_trial_acc = 0
-        
+
+        # Training loop
         for epoch in range(max_epochs):
-            # Train
             model.train()
             for X_batch, y_batch in train_loader:
                 X_batch, y_batch = X_batch.to(device), y_batch.to(device)
@@ -257,37 +239,32 @@ def tune_hyperparameters_on_fold(X_train_val, y_train_val, model_class, device='
                 loss = criterion(outputs, y_batch)
                 loss.backward()
                 optimizer.step()
-            
-            # Validate
+
+            # Validation accuracy
             model.eval()
             val_correct = 0
             val_total = 0
-            
             with torch.no_grad():
                 for X_batch, y_batch in val_loader:
                     X_batch, y_batch = X_batch.to(device), y_batch.to(device)
                     outputs = model(X_batch)
-                    _, predicted = torch.max(outputs, 1)
+                    _, preds = torch.max(outputs, 1)
                     val_total += y_batch.size(0)
-                    val_correct += (predicted == y_batch).sum().item()
-            
+                    val_correct += (preds == y_batch).sum().item()
+
             val_acc = val_correct / val_total
             best_trial_acc = max(best_trial_acc, val_acc)
-        
-        print(f"    Trial {trial+1}/{n_trials}: LR={params['learning_rate']:.0e}, "
-              f"BS={params['batch_size']}, Dropout={params['dropout']:.2f}, "
-              f"WD={params['weight_decay']:.0e} → Val Acc: {best_trial_acc:.4f}")
-        
-        # Track best parameters
+
+        print(f"    Trial {trial+1}: {params} → Val Acc: {best_trial_acc:.4f}")
+
         if best_trial_acc > best_val_acc:
             best_val_acc = best_trial_acc
             best_params = params.copy()
-    
-    print(f"  → Best params: LR={best_params['learning_rate']:.0e}, "
-          f"BS={best_params['batch_size']}, Dropout={best_params['dropout']:.2f}, "
-          f"WD={best_params['weight_decay']:.0e} (Tuning Val Acc: {best_val_acc:.4f})")
-    
+
+    print(f"  → Best params: {best_params} (Val Acc={best_val_acc:.4f})")
+
     return best_params
+
 
 
 
