@@ -181,7 +181,7 @@ def train_with_kfold_cv(X_data, y_data, model_class, n_splits=5, max_epochs=50,
         n_splits: Number of folds
         max_epochs: Maximum epochs per fold
         batch_size: Batch size
-        device: 'cuda' or 'cpu'
+        device: 'mps' or 'cpu'
         patience: Early stopping patience
         min_delta: Minimum improvement threshold
         model_kwargs: Dict of kwargs for model initialization
