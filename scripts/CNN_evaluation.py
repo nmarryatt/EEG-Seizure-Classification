@@ -1,25 +1,28 @@
-import torch
-from torch.utils.data import DataLoader, TensorDataset, SubsetRandomSampler
 import numpy as np
+import matplotlib.pyplot as plt
+
+import torch
 import torch.nn as nn
-import torch.optim as optim
-from scripts.train import train
-from scripts.train import evaluate
+from torch.utils.data import DataLoader, TensorDataset, SubsetRandomSampler
+
 from sklearn.model_selection import KFold
 from sklearn.metrics import (
     balanced_accuracy_score, 
     f1_score, 
     precision_score, 
-    recall_score,
-    confusion_matrix,
+    recall_score, 
+    confusion_matrix, 
     classification_report
 )
-from sklearn.model_selection import KFold
-import matplotlib.pyplot as plt
 
-from torch.utils.data import DataLoader, TensorDataset, SubsetRandomSampler
-from scripts.CV import normalize_fold_data, create_fold_dataloaders, calculate_class_weights, print_cv_summary, train_single_fold
-
+from scripts.train import train, evaluate
+from scripts.CV import (
+    normalize_fold_data,
+    create_fold_dataloaders,
+    calculate_class_weights,
+    print_cv_summary,
+    train_single_fold
+)
 
 
 def plot_kfold_results(results, n_splits=5):
@@ -55,7 +58,7 @@ def plot_kfold_results(results, n_splits=5):
     ax.set_ylabel('Training Loss')
     ax.set_title('Training Loss - All Folds')
     ax.set_xlim(1, max_epochs)
-    ax.set_ylim(loss_min - loss_padding, loss_max + loss_padding)  # ← SAME Y-AXIS
+    ax.set_ylim(loss_min - loss_padding, loss_max + loss_padding)  
     ax.legend()
     ax.grid(True, alpha=0.3)
     
@@ -68,7 +71,7 @@ def plot_kfold_results(results, n_splits=5):
     ax.set_ylabel('Validation Loss')
     ax.set_title('Validation Loss - All Folds')
     ax.set_xlim(1, max_epochs)
-    ax.set_ylim(loss_min - loss_padding, loss_max + loss_padding)  # ← SAME Y-AXIS
+    ax.set_ylim(loss_min - loss_padding, loss_max + loss_padding)  
     ax.legend()
     ax.grid(True, alpha=0.3)
     
@@ -81,7 +84,7 @@ def plot_kfold_results(results, n_splits=5):
     ax.set_ylabel('Training Accuracy')
     ax.set_title('Training Accuracy - All Folds')
     ax.set_xlim(1, max_epochs)
-    ax.set_ylim(acc_min - acc_padding, acc_max + acc_padding)  # ← SAME Y-AXIS
+    ax.set_ylim(acc_min - acc_padding, acc_max + acc_padding) 
     ax.legend()
     ax.grid(True, alpha=0.3)
     
@@ -94,7 +97,7 @@ def plot_kfold_results(results, n_splits=5):
     ax.set_ylabel('Validation Accuracy')
     ax.set_title('Validation Accuracy - All Folds')
     ax.set_xlim(1, max_epochs)
-    ax.set_ylim(acc_min - acc_padding, acc_max + acc_padding)  # ← SAME Y-AXIS
+    ax.set_ylim(acc_min - acc_padding, acc_max + acc_padding)  
     ax.legend()
     ax.grid(True, alpha=0.3)
     
@@ -156,7 +159,7 @@ def calculate_metrics_from_saved_models(X_full, y_full, model_class, n_splits=5,
         try:
             model.load_state_dict(torch.load(f'best_model_fold{fold}.pth'))
         except FileNotFoundError:
-            print(f"⚠️  Warning: best_model_fold{fold}.pth not found. Skipping fold {fold}.")
+            print(f"Warning: best_model_fold{fold}.pth not found. Skipping fold {fold}.")
             continue
         
         model.eval()
@@ -235,7 +238,7 @@ def print_quick_summary(metrics):
     print(f"\n{'Average Confusion Matrix:':<20}")
     print(f"  TN (Non-Seizure correct): {tn:.1f}")
     print(f"  FP (False alarm):         {fp:.1f}")
-    print(f"  FN (Missed seizure):      {fn:.1f}  ⚠️ Most critical!")
+    print(f"  FN (Missed seizure):      {fn:.1f} ")
     print(f"  TP (Seizure caught):      {tp:.1f}")
     
     print("="*60)
@@ -265,7 +268,7 @@ def plot_metrics_comparison(metrics):
     ax.set_xticks(x)
     ax.set_xticklabels(display_names, fontsize=12)
     ax.grid(True, alpha=0.3, axis='y', linestyle='--')
-    ax.set_ylim([88, 102])
+    ax.set_ylim([70, 102])
     
     # Add value labels on top of bars (above error bars)
     for i, (mean, std) in enumerate(zip(means, stds)):

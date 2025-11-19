@@ -1,7 +1,7 @@
 
 import torch
 
-def train(model, loader, criterion, optimizer, device='cpu'):
+def train(model, loader, criterion, optimizer, device):
     model.train()
     running_loss = 0.0
     correct = 0
@@ -25,7 +25,7 @@ def train(model, loader, criterion, optimizer, device='cpu'):
     epoch_acc = correct / total
     return epoch_loss, epoch_acc
 
-def evaluate(model, loader, criterion, device='cpu'):
+def evaluate(model, loader, criterion, device):
     model.eval()
     running_loss = 0.0
     correct = 0

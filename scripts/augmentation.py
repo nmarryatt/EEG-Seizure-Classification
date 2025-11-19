@@ -1,26 +1,28 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import torch
-from torch.utils.data import DataLoader, TensorDataset, SubsetRandomSampler
-import numpy as np
 import torch.nn as nn
 import torch.optim as optim
-from scripts.train import train
-from scripts.train import evaluate
-from sklearn.model_selection import KFold
+from torch.utils.data import DataLoader, TensorDataset, SubsetRandomSampler
+
+from sklearn.model_selection import KFold, train_test_split
 from sklearn.metrics import (
     balanced_accuracy_score, 
     f1_score, 
     precision_score, 
-    recall_score,
-    confusion_matrix,
+    recall_score, 
+    confusion_matrix, 
     classification_report
 )
-from sklearn.model_selection import KFold
-import matplotlib.pyplot as plt
 
-from torch.utils.data import DataLoader, TensorDataset, SubsetRandomSampler
-from scripts.CV import normalize_fold_data, create_fold_dataloaders, calculate_class_weights, print_cv_summary, train_single_fold
+from scripts.train import train, evaluate
+from scripts.CV import (
+    normalize_fold_data,
+    create_fold_dataloaders,
+    calculate_class_weights,
+    print_cv_summary,
+    train_single_fold
+)
 
 def augment_eeg_signal(signal, aug_type):
     """
@@ -346,7 +348,7 @@ def train_with_kfold_cv_augmented(X_data, y_data, model_class, n_splits=5,
         y_train_fold = y_data[train_ids]
         y_val_fold = y_data[val_ids]
         
-        # HYPERPARAMETER TUNING (if enabled)
+        # Hyperamater tuning (if enabled)
         if tune_hyperparams:
             best_params = tune_hyperparameters_on_fold(
                 X_train_fold, y_train_fold, model_class, 
@@ -365,7 +367,7 @@ def train_with_kfold_cv_augmented(X_data, y_data, model_class, n_splits=5,
             fold_lr = 1e-3
             fold_weight_decay = 1e-4
         
-        # AUGMENTATION - only on training data!
+        # Augmentation - only on training data!
         if use_augmentation:
             # Separate seizure and non-seizure in training set
             train_seizure_mask = y_train_fold == 1
