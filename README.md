@@ -1,4 +1,4 @@
-# Seer Technical Interview: EEG Seizure Clasficiation using 1D CNN
+# EEG Seizure Clasficiation using 1D CNN
 This project uses the **BONN EEG Dataset** to train a **1D convolution neural network (CNN)** to distinguish **seizure (ictal) vs non seizure (interictal/healthy) EEG segments**. 
 The Bonn dataset contains EEG recordings from healthy volunteers and epilepsy patients, with segments labeled as seizure (ictal) or non-seizure (comprised of interictal and healthy). The goal is to demonstrate a deep learning approach for seizure detection from single-channel EEG data.
 
